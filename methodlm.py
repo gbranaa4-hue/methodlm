@@ -134,11 +134,13 @@ def make_tools(data, target, interventional):
                 f"If the within-band mean collapses, {x}'s link runs through {z}.")
 
     def adjust(x, zs):
-        """Backdoor adjustment (multiple regression) + Cinelli-Hazlett sensitivity: how
-        strong an UNMEASURED confounder would have to be to overturn the adjusted effect.
-        ALSO computes the FULL adjustment (every other column) and warns when the requested
-        conditioning set omits candidates -- leaving the true confounder out is exactly what
-        makes a bystander falsely 'survive'."""
+        """Backdoor adjustment (multiple regression) + Cinelli-Hazlett sensitivity, WITH a
+        collider/mediator bias audit. Adjusting for a MEDIATOR (on the X->target path) or a
+        COLLIDER (a common effect of X and target) INTRODUCES bias -- the 'Table 2 fallacy' --
+        so 'control for everything' is wrong for observational/causal data. Data alone cannot
+        prove a variable's role (a confounder and a mediator are observationally identical);
+        this flags the one danger that IS detectable (a collider: conditioning opens a path
+        and RAISES the X-target association) and defers the rest to the DAG / time-order."""
         if x not in data:
             return f"unknown column '{x}'; columns are {list(data)}"
         others = [c for c in data if c not in (x, target)]
@@ -159,6 +161,14 @@ def make_tools(data, target, interventional):
             f = abs(t) / np.sqrt(max(dof, 1))
             return partial, t, 0.5 * (np.sqrt(f ** 4 + 4 * f ** 2) - f ** 2)   # RV (q=1)
 
+        def pcorr_xy(cond):                                         # partial corr of x & target | cond
+            if not cond:
+                return float(np.corrcoef(data[x], data[target])[0, 1])
+            Z = np.column_stack([zsc(data[c]) for c in cond] + [np.ones(n)])
+            rx = zsc(data[x]) - Z @ np.linalg.lstsq(Z, zsc(data[x]), rcond=None)[0]
+            ry = y - Z @ np.linalg.lstsq(Z, y, rcond=None)[0]
+            return float(np.corrcoef(rx, ry)[0, 1])
+
         partial, t, rv = fit(zs)
         raw = float(np.corrcoef(data[x], data[target])[0, 1])
         zst = ", ".join(zs) if zs else "nothing"
@@ -167,16 +177,40 @@ def make_tools(data, target, interventional):
                f"Robustness value RV={rv:.2f}: an unmeasured confounder would need to explain "
                f">={rv*100:.0f}% of the residual variance of BOTH {x} and {target} to null it. "
                f"RV<0.10 = fragile; higher = more robust to hidden confounding.")
+
+        r0 = abs(raw); collide, explain = [], []                    # per-variable bias audit
+        for z in zs:
+            rz = pcorr_xy([z])
+            opened = abs(rz) - r0 > 0.10                            # conditioning grows the association
+            flipped = rz * raw < 0 and abs(rz) > 0.15              # ...or reverses its sign
+            if opened or flipped:
+                collide.append((z, rz))
+            elif r0 - abs(rz) > 0.15:                               # z soaks up much of x<->target
+                explain.append((z, rz))
+        if collide:
+            lst = ", ".join(f"{z} (corr {raw:+.2f}->{rz:+.2f})" for z, rz in collide)
+            msg += (f"\n[BIAS-AUDIT] conditioning on {lst} sharply changes the {x}-{target} link "
+                    f"(opens or reverses it) -- a COLLIDER signature (a common effect of both). If "
+                    f"{x} and {target} both cause it, do NOT adjust; that manufactures a spurious "
+                    f"effect. (A strong confounder can also flip the sign -- confirm via the DAG.)")
+        if explain:
+            lst = ", ".join(f"{z} (corr {raw:+.2f}->{rz:+.2f})" for z, rz in explain)
+            msg += (f"\n[BIAS-AUDIT] {lst} soak(s) up much of the link. Correct to adjust ONLY if a "
+                    f"CONFOUNDER (a prior common cause); if a MEDIATOR (on the {x}->{target} path) "
+                    f"or measured AFTER {x}, adjusting ERASES the real effect. Data can't tell "
+                    f"them apart -- decide by the DAG / measurement time-order.")
+        if zs and not collide and not explain:
+            msg += ("\n[BIAS-AUDIT] no collider signature in the set (still confirm none are "
+                    "mediators / post-exposure via the DAG).")
+
         omitted = [c for c in others if c not in zs]
-        if omitted:                                                # incomplete set -> show the full adjustment
+        if omitted:                                                # show the full-set result as a reference
             fp, ft, frv = fit(others)
             flip = (abs(fp) < 0.10) != (abs(partial) < 0.10)
-            msg += (f"\n[COMPLETENESS] you left {omitted} OUT of the conditioning set. Backdoor "
-                    f"adjustment is only valid controlling for ALL other candidates. Under FULL "
-                    f"adjustment {x}'s partial corr is {fp:+.2f} (RV={frv:.2f})"
-                    + (f" -- this FLIPS your result: an omitted column was confounding {x}, so its "
-                       f"apparent survival was spurious. Trust the FULL adjustment."
-                       if flip else ", consistent with your subset."))
+            msg += (f"\n[FULL SET] controlling for ALL others {omitted}: {x}'s partial is {fp:+.2f} "
+                    f"(RV={frv:.2f})" + (" -- FLIPS vs your subset." if flip else ", consistent.") +
+                    " Trust this ONLY if none of those are mediators/colliders (see BIAS-AUDIT); for "
+                    "observational data adjust for confounders, not 'everything'.")
         return msg
 
     return corr, run, strat, adjust
@@ -197,14 +231,15 @@ def build_system(cols, target, interventional):
         Tools -- end each reply with exactly one tool line:
           CORR: {a},{target}
         {runline}
-          ADJUST: {a} | <ALL other columns>   (backdoor adjustment + sensitivity: effect of
-                                     {a} on {target} controlling for the listed confounders,
-                                     with a robustness value for hidden confounding)
+          ADJUST: {a} | <other confounder columns>   (backdoor adjustment + sensitivity: effect
+                                     of {a} on {target} controlling for the listed confounders,
+                                     with a robustness value + a collider/mediator bias audit)
           ATTR:                    (the learned ternary model's evidence per column)
-        HOW TO FIND THE DRIVER: for a candidate X, run 'ADJUST: X | <EVERY other candidate
-        column>'. Always condition on ALL the others -- omitting even one can leave the true
-        confounder in, making a bystander falsely survive; the tool will WARN and show the
-        full adjustment if you leave any out, and you must trust that full-adjustment result.
+        HOW TO FIND THE DRIVER: for a candidate X, run 'ADJUST: X | <the other candidate
+        columns>'. The tool shows the full-set result AND a [BIAS-AUDIT]. HEED IT: drop any
+        variable flagged as a COLLIDER (conditioning on it manufactures a fake effect), and do
+        NOT adjust for a MEDIATOR (a variable on the X->{target} path or measured after X) --
+        'adjust for everything' is the Table 2 fallacy. Condition on prior common causes only.
         If X's adjusted partial corr stays large with a high robustness value, X drives
         {target}; if it COLLAPSES toward 0 (or RV < 0.10), X is a confounded bystander.
         CRITICAL: the driver is the candidate that SURVIVES full adjustment -- it is NEVER

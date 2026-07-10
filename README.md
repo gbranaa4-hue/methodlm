@@ -28,7 +28,7 @@ held to the *same* standard: no `FINAL` verdict without a real, pre-registered t
 | `CORR` | observational correlation (a clue, never a verdict) |
 | `RUN` | a true controlled experiment (interventional demo world) |
 | `STRAT` | stratified check — does the link survive inside bands of a confounder? |
-| `ADJUST` | **backdoor adjustment + sensitivity** — effect of X on the target controlling for **all** other columns, with a Cinelli–Hazlett **robustness value** (how strong a *hidden* confounder would need to be to overturn it; `RV < 0.10` = fragile). Warns and shows the full adjustment if you leave a candidate out. |
+| `ADJUST` | **backdoor adjustment + sensitivity + bias audit** — effect of X on the target controlling for named confounders, with a Cinelli–Hazlett **robustness value** (how strong a *hidden* confounder would need to be to overturn it; `RV < 0.10` = fragile), **plus a collider/mediator audit** that flags when conditioning on a variable would *introduce* bias (the "Table 2 fallacy"). It detects the data-visible danger (a collider) and honestly defers mediator-vs-confounder to your DAG — so it never tells you to blindly "adjust for everything." |
 | `ATTR` | the ternary compute gate's independent evidence per column (the optional second witness) |
 
 Pre-registration is enforced: no `FINAL` is accepted until at least one real test
