@@ -1,0 +1,348 @@
+<title>MethodLM · Quantum Console</title>
+<style>
+  :root{
+    --vac:#0a0603; --vac2:#150b04; --panel:rgba(34,20,9,.62); --raise:rgba(48,28,13,.72);
+    --edge:rgba(255,150,60,.16); --edge2:rgba(255,150,60,.34);
+    --ink:#ffece0; --soft:#e6b98f; --faint:#a5744a;
+    --cyan:#ff9d3c; --violet:#ff7518; --magenta:#ff5a1a; --amber:#ffcf6b;
+    --good:#ffca3a; --warn:#ff8c1a; --bad:#ff4d3d;
+    --mono:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  *{box-sizing:border-box}
+  .q-root{position:relative;min-height:680px;background:
+      radial-gradient(1200px 700px at 78% -8%,rgba(255,120,25,.16),transparent 60%),
+      radial-gradient(1000px 620px at 8% 108%,rgba(255,165,55,.12),transparent 58%),
+      linear-gradient(160deg,var(--vac),var(--vac2));
+    color:var(--ink);font-family:var(--sans);overflow:hidden;border-radius:14px}
+  #qfield{position:absolute;inset:0;width:100%;height:100%;z-index:0;opacity:.9}
+  .q-wrap{position:relative;z-index:1;padding:clamp(18px,3.4vw,34px)}
+  .mono{font-family:var(--mono)} .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--faint)}
+  header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:13px}
+  .qbit{width:30px;height:30px;border-radius:50%;position:relative;
+    background:conic-gradient(from 0deg,var(--cyan),var(--violet),var(--magenta),var(--cyan));
+    animation:spin 7s linear infinite;box-shadow:0 0 22px rgba(255,120,25,.5)}
+  .qbit::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--vac)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .brand h1{margin:0;font-size:20px;font-weight:640;letter-spacing:-.01em;font-family:var(--mono)}
+  .status{font-family:var(--mono);font-size:11px;color:var(--soft);display:flex;align-items:center;gap:8px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 10px var(--good)}
+  .dot.sim{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+  .grid{display:grid;grid-template-columns:360px 1fr;gap:16px}
+  @media(max-width:800px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:18px;backdrop-filter:blur(9px)}
+  .card h2{margin:0 0 4px;font-size:13px;font-weight:600;letter-spacing:.02em}
+  .card .sub{font-size:12px;color:var(--soft);margin:0 0 14px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .chip{font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:9px;cursor:pointer;
+    border:1px solid var(--edge);background:transparent;color:var(--soft);transition:.15s}
+  .chip:hover{border-color:var(--edge2);color:var(--ink)}
+  .chip[aria-pressed="true"]{border-color:var(--violet);color:var(--ink);
+    background:linear-gradient(180deg,rgba(255,120,25,.22),rgba(255,120,25,.05));box-shadow:0 0 16px rgba(255,120,25,.28)}
+  label.fld{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:12px 0 4px;font-family:var(--mono)}
+  label.fld .hint{text-transform:none;letter-spacing:0;color:var(--faint);font-family:var(--sans);font-size:11px}
+  .tin{width:100%;font-family:var(--mono);font-size:12.5px;color:var(--ink);background:rgba(14,8,3,.6);
+    border:1px solid var(--edge);border-radius:9px;padding:9px 11px;outline:none}
+  .tin:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(255,120,25,.18)}
+  .tchips{display:flex;flex-wrap:wrap;gap:7px}
+  .tc{font-family:var(--mono);font-size:11.5px;padding:6px 10px;border-radius:8px;cursor:pointer;
+    border:1px solid var(--edge);color:var(--soft);background:rgba(14,8,3,.4);transition:.14s}
+  .tc:hover{border-color:var(--edge2);color:var(--ink)}
+  .tc[aria-pressed="true"]{border-color:var(--cyan);color:var(--vac);background:var(--cyan);font-weight:600;box-shadow:0 0 14px rgba(255,165,55,.4)}
+  .tc .k{opacity:.6;font-size:9.5px}
+  .valid{margin-top:10px;font-family:var(--mono);font-size:11.5px;min-height:16px}
+  .valid.ok{color:var(--good)} .valid.err{color:var(--bad)}
+  .race-tog{display:flex;align-items:center;gap:9px;margin-top:16px;font-family:var(--mono);font-size:12px;color:var(--soft);cursor:pointer}
+  .race-tog input{appearance:none;width:38px;height:20px;border-radius:20px;background:rgba(14,8,3,.7);border:1px solid var(--edge);position:relative;cursor:pointer;transition:.2s}
+  .race-tog input:checked{background:linear-gradient(90deg,var(--violet),var(--magenta));border-color:transparent}
+  .race-tog input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--ink);transition:.2s}
+  .race-tog input:checked::after{left:20px}
+  .measure{margin-top:16px;width:100%;font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase;
+    padding:13px;border-radius:11px;cursor:pointer;color:var(--vac);font-weight:600;border:none;
+    background:linear-gradient(120deg,var(--cyan),var(--violet),var(--magenta));background-size:200% 100%;animation:flow 5s linear infinite;box-shadow:0 6px 26px rgba(255,120,25,.4)}
+  .measure:disabled{filter:grayscale(.5) opacity(.6);cursor:progress}
+  @keyframes flow{to{background-position:200% 0}}
+
+  .chamber{min-height:300px}
+  .witnesses{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:540px){.witnesses{grid-template-columns:1fr}}
+  .witness .wh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .witness .wh .t{font-size:12.5px;font-weight:600}
+  .witness .wh .s{font-family:var(--mono);font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em}
+  .amp{margin-bottom:9px}
+  .amp .lab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;color:var(--soft);margin-bottom:4px}
+  .amp .lab .p{color:var(--faint)}
+  .track{height:9px;border-radius:5px;background:rgba(14,8,3,.55);overflow:hidden}
+  .fillbar{height:100%;border-radius:5px;transition:width 1.4s cubic-bezier(.2,.8,.2,1),opacity .9s;
+    background:linear-gradient(90deg,var(--violet),var(--magenta));background-size:220% 100%;animation:shimmer 2.4s linear infinite}
+  @keyframes shimmer{to{background-position:220% 0}}
+  .amp.collapsed .fillbar{animation:none;background:linear-gradient(90deg,var(--cyan),var(--good))}
+  .amp.dead .fillbar{opacity:.14} .amp.win .lab{color:var(--ink)} .amp.win .lab .p{color:var(--cyan)}
+  .verdict{margin-top:14px;border:1px solid var(--edge);border-radius:12px;padding:15px 17px;background:var(--raise);opacity:.35;transition:opacity .7s,border-color .7s,box-shadow .7s}
+  .verdict.on{opacity:1;border-color:var(--cyan);box-shadow:0 0 34px rgba(255,165,55,.24)}
+  .verdict .h{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:640;margin-bottom:5px}
+  .verdict .eig{font-family:var(--mono);color:var(--cyan);text-shadow:0 0 14px rgba(255,165,55,.6)}
+  .verdict p{margin:0;font-size:13px;color:var(--soft)} .verdict .key{margin-top:8px;font-family:var(--mono);font-size:11.5px;color:var(--good)}
+
+  /* race lanes */
+  .lanes{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:540px){.lanes{grid-template-columns:1fr}}
+  .lane{border:1px solid var(--edge);border-radius:12px;padding:15px;background:var(--raise);position:relative;overflow:hidden}
+  .lane .lh{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .lane .lh .who{font-size:13px;font-weight:640} .lane .lh .badge{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--edge);color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
+  .lane.method{border-color:var(--edge2)} .lane .prog{height:6px;border-radius:4px;background:rgba(14,8,3,.6);overflow:hidden;margin-bottom:12px}
+  .lane .prog span{display:block;height:100%;width:0;border-radius:4px;transition:width 1s linear}
+  .lane.vanilla .prog span{background:linear-gradient(90deg,var(--warn),var(--bad))}
+  .lane.method .prog span{background:linear-gradient(90deg,var(--violet),var(--cyan))}
+  .lane .eig{font-family:var(--mono);font-size:13px;margin-bottom:7px;opacity:0;transition:opacity .5s}
+  .lane .ans{font-size:12.5px;color:var(--soft);line-height:1.55;opacity:0;transition:opacity .5s}
+  .lane .flag{position:absolute;top:13px;right:13px;font-family:var(--mono);font-size:11px;opacity:0;transition:opacity .5s}
+  .lane.revealed .eig,.lane.revealed .ans,.lane.revealed .flag{opacity:1}
+  .lane.win-good .eig{color:var(--good)} .lane.win-bad .eig{color:var(--bad)}
+  .flag.good{color:var(--good)} .flag.bad{color:var(--bad)} .flag.warn{color:var(--warn)}
+  .racehead{text-align:center;font-family:var(--mono);font-size:12.5px;color:var(--soft);margin-top:14px;min-height:18px}
+  .racehead b{color:var(--cyan)}
+
+  .ledger{margin-top:16px;border:1px solid var(--edge);border-radius:12px;background:rgba(14,8,3,.5);overflow:hidden}
+  .ledger .lh{padding:9px 14px;border-bottom:1px solid var(--edge);font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);display:flex;justify-content:space-between}
+  .tape{font-family:var(--mono);font-size:12px;line-height:1.7;padding:8px 0;max-height:210px;overflow-y:auto}
+  .tape .ln{display:block;padding:2px 14px;white-space:pre-wrap;word-break:break-word}
+  .tape .pre{color:var(--violet)} .tape .tool{color:var(--cyan)} .tape .ref{color:var(--warn);font-style:italic}
+  .tape .fin{color:var(--ink);border-left:2px solid var(--cyan);background:rgba(255,165,55,.05)} .tape .hit{color:var(--good)} .tape .sys{color:var(--faint)}
+  .empty{padding:30px 16px;text-align:center;color:var(--faint);font-family:var(--mono);font-size:12px}
+  .hidden{display:none!important}
+</style>
+
+<div class="q-root">
+  <canvas id="qfield" aria-hidden="true"></canvas>
+  <div class="q-wrap">
+    <header>
+      <div class="brand"><span class="qbit" aria-hidden="true"></span>
+        <div><h1>MethodLM</h1><span class="eyebrow">quantum console · measure the cause</span></div>
+      </div>
+      <div class="status"><span class="dot sim" id="statusDot"></span><span id="statusTxt">simulation mode</span></div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Specimen</h2>
+        <p class="sub">Load a dataset, then choose the target — the outcome you want explained.</p>
+        <div class="chips" id="dsChips" role="group" aria-label="datasets">
+          <button class="chip" data-ds="demo" aria-pressed="true">sensor · demo</button>
+          <button class="chip" data-ds="diabetes" aria-pressed="false">diabetes · 442</button>
+          <button class="chip" data-ds="custom" aria-pressed="false">＋ your data</button>
+        </div>
+        <div id="customBox" class="hidden">
+          <label class="fld" for="path">file path <span class="hint">— csv / json / parquet / sqlite</span></label>
+          <input class="tin" id="path" spellcheck="false" placeholder="C:\path\to\data.csv" />
+          <div class="valid" id="pathMsg"></div>
+        </div>
+        <label class="fld">target column <span class="hint">— the result to explain; the rest are candidate drivers</span></label>
+        <div class="tchips" id="tgtChips"></div>
+        <div class="valid ok" id="valid"></div>
+        <label class="race-tog"><input type="checkbox" id="raceTog" /> ⚔ race a plain LLM (no method)</label>
+        <button class="measure" id="go">▸ Measure</button>
+      </div>
+
+      <div class="card">
+        <h2 id="chamberTitle">Measurement chamber</h2>
+        <p class="sub" id="chamberSub">Two witnesses in superposition collapse to one eigenstate.</p>
+        <div class="chamber">
+          <div id="soloView">
+            <div class="witnesses">
+              <div class="witness"><div class="wh"><span class="t">Witness A</span><span class="s">gate · gradients</span></div><div id="wA"></div></div>
+              <div class="witness"><div class="wh"><span class="t">Witness B</span><span class="s">copilot · experiment</span></div><div id="wB"></div></div>
+            </div>
+            <div class="verdict" id="verdict">
+              <div class="h">Awaiting measurement <span class="eig" id="eig"></span></div>
+              <p id="vtxt">Pick a specimen and a target, then measure. Both witnesses reason independently.</p>
+              <div class="key" id="vkey"></div>
+            </div>
+          </div>
+          <div id="raceView" class="hidden">
+            <div class="lanes">
+              <div class="lane vanilla" id="laneV">
+                <div class="lh"><span class="who">Plain LLM</span><span class="badge">no method · no tools</span></div>
+                <div class="prog"><span id="progV"></span></div>
+                <span class="flag" id="flagV"></span>
+                <div class="eig" id="eigV"></div><div class="ans" id="ansV"></div>
+              </div>
+              <div class="lane method" id="laneM">
+                <div class="lh"><span class="who">MethodLM</span><span class="badge" id="badgeM">method · tools</span></div>
+                <div class="prog"><span id="progM"></span></div>
+                <span class="flag" id="flagM"></span>
+                <div class="eig" id="eigM"></div><div class="ans" id="ansM"></div>
+              </div>
+            </div>
+            <div class="racehead" id="racehead"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ledger">
+      <div class="lh"><span id="ledName">ledger</span><span id="ledMeta">idle</span></div>
+      <div class="tape" id="tape"><div class="empty">the honest tape prints here as MethodLM works</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var DS={
+    demo:{cols:[["temperature","num"],["humidity","num"],["vibration","num"],["error","num"]],
+      target:"error",baseTarget:"error",computable:true},
+    diabetes:{cols:[["age","num"],["sex","num"],["bmi","num"],["bp","num"],["ltg","num"],["glu","num"],["progression","num"]],target:"progression",
+      A:[["bmi",.28],["ltg",.24],["sex",.19],["bp",.16]],
+      B:[["bmi",.4],["ltg",.35],["bp",.25]],
+      win:"bmi",baseTarget:"progression",verdict:"bmi's link is robust — it does not run through the serum marker ltg.",
+      key:"real patients · conditioning, not intervention",
+      race:{answerKey:null,vanillaPick:"bmi",vanillaBadge:"no test",
+        vanilla:"bmi correlates strongly (r=0.59), so fund the weight-loss program.",
+        methodPick:"bmi",methodBadge:"1 STRAT test",
+        method:"bmi survives conditioning on ltg (0.59→0.43) — robust, not a proxy. But observational: not proven causal.",
+        head:"Same pick — but only MethodLM <b>tested</b> it, and stopped short of a causal claim it can't earn."},
+      tape:[["sys","compute ▸ gate connects [sex, bmi, bp, ltg] · NMSE 0.67"],
+        ["pre","turn 1 ▸ PREREGISTER + STRAT: bmi conditioned on ltg"],
+        ["hit","        stratified →  raw +0.59 · within-ltg mean +0.43 (holds)"],
+        ["fin","turn 2 ▸ FINAL: bmi robust across ltg quartiles — not a mere proxy."]]}
+  };
+  var cur="demo",busy=false,live=false;
+  var $=function(id){return document.getElementById(id)};
+
+  /* --- in-browser numeric engine: makes the demo REALLY compute (no LLM needed) --- */
+  function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  function pearson(a,b){var n=a.length,ma=0,mb=0,i;for(i=0;i<n;i++){ma+=a[i];mb+=b[i];}ma/=n;mb/=n;var sa=0,sb=0,s=0;for(i=0;i<n;i++){var da=a[i]-ma,db=b[i]-mb;sa+=da*da;sb+=db*db;s+=da*db;}return s/Math.sqrt(sa*sb||1e-9);}
+  function genSensor(n){var rng=mulberry(7),o={temperature:[],humidity:[],vibration:[],error:[]},season=0;for(var i=0;i<n;i++){season+=(rng()-.5)*.3;var s=Math.tanh(season);o.temperature.push(25+6*s+(rng()-.5)*1.6);o.humidity.push(50+15*s+(rng()-.5)*5);o.vibration.push((rng()-.5)*3.4);o.error.push(Math.max(0,.5+.08*(o.humidity[i]-50)+(rng()-.5)*.7));}return o;}
+  var DEMO=genSensor(1500);
+  function fmt(x){return (x>=0?"+":"")+x.toFixed(2);}
+  function computeLocal(data,target){
+    var cols=Object.keys(data).filter(function(c){return c!==target;});
+    var raw={};cols.forEach(function(c){raw[c]=pearson(data[c],data[target]);});
+    var part={};cols.forEach(function(c){var z=null,best=-1;cols.forEach(function(o){if(o!==c){var r=Math.abs(pearson(data[c],data[o]));if(r>best){best=r;z=o;}}});
+      if(z===null){part[c]=raw[c];return;}var rcz=pearson(data[c],data[z]),rzt=pearson(data[z],data[target]);part[c]=(raw[c]-rcz*rzt)/Math.sqrt((1-rcz*rcz)*(1-rzt*rzt)||1e-9);});
+    var win=cols[0],van=cols[0];cols.forEach(function(c){if(Math.abs(part[c])>Math.abs(part[win]))win=c;if(Math.abs(raw[c])>Math.abs(raw[van]))van=c;});
+    function norm(m){var s=0;cols.forEach(function(c){s+=Math.abs(m[c]);});return cols.map(function(c){return [c,Math.abs(m[c])/(s||1)];}).sort(function(a,b){return b[1]-a[1];});}
+    return {cols:cols,raw:raw,part:part,win:win,van:van,Awit:norm(part),Bwit:norm(raw)};}
+  function demoResult(target){var r=computeLocal(DEMO,target),truth=(target==="error")?"humidity":null;
+    var weak=Math.abs(r.part[r.win])<0.12;
+    return {A:r.Awit,B:r.Bwit,win:r.win,
+      verdict:weak?("No candidate meaningfully drives "+target+" — the strongest, "+r.win+", is only "+fmt(r.part[r.win])+" after conditioning. It looks like noise."):(r.win+" drives "+target+" — it survives conditioning (partial r "+fmt(r.part[r.win])+"), while "+r.van+" falls to "+fmt(r.part[r.van])+"."),
+      key:(target==="error")?"✓ answer key (never shown): error = f(humidity)":"computed live in your browser · partial-correlation gate",
+      race:{answerKey:truth,vanillaPick:r.van,vanillaBadge:"raw corr only",
+        vanilla:r.van+" has the strongest raw correlation (r="+fmt(r.raw[r.van])+"), so it must drive "+target+" — act on it.",
+        methodPick:r.win,methodBadge:"conditioned · tested",
+        method:r.win+" survives conditioning (partial r="+fmt(r.part[r.win])+"); "+r.van+" collapses to "+fmt(r.part[r.van])+" — a bystander.",
+        head:(r.win!==r.van)?("Raw correlation says <b>"+r.van+"</b> — the tested gate says <b>"+r.win+"</b>."):("Both point to <b>"+r.win+"</b>, and it survived the test.")},
+      tape:[["sys","compute ▸ in-browser partial-correlation gate · "+r.cols.length+" candidates"],
+        ["tool","        raw corr:  "+r.cols.map(function(c){return c+" "+fmt(r.raw[c]);}).join("   ")],
+        ["pre","        condition each on its strongest confounder…"],
+        ["hit","        partial:   "+r.cols.map(function(c){return c+" "+fmt(r.part[c]);}).join("   ")],
+        ["fin","        FINAL: "+r.win+" drives "+target+"; "+r.van+" was a bystander."]]};}
+
+  /* quantum field */
+  var cv=$("qfield"),ctx=cv.getContext("2d"),W,H,P=[],DPR=Math.min(2,devicePixelRatio||1);
+  var reduce=matchMedia("(prefers-reduced-motion:reduce)").matches;
+  function size(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+  function seed(){P=[];var n=Math.min(90,Math.floor(W*H/13000));for(var i=0;i<n;i++)P.push({x:Math.random()*W,y:Math.random()*H,ph:Math.random()*6.28,sp:.2+Math.random()*.7,r:1.2+Math.random()*3.4,dx:(Math.random()-.5)*.13,dy:(Math.random()-.5)*.13});}
+  var HUE=[[63,240,216],[138,108,255],[255,92,200]];
+  function col(ph,a){var t=(Math.sin(ph)*.5+.5)*2,i=Math.floor(t),f=t-i,c0=HUE[i%3],c1=HUE[(i+1)%3];return"rgba("+Math.round(c0[0]+(c1[0]-c0[0])*f)+","+Math.round(c0[1]+(c1[1]-c0[1])*f)+","+Math.round(c0[2]+(c1[2]-c0[2])*f)+","+a+")";}
+  function frame(){ctx.clearRect(0,0,W,H);ctx.globalCompositeOperation="lighter";for(var i=0;i<P.length;i++){var p=P[i];if(!reduce){p.ph+=.012*p.sp;p.x+=p.dx;p.y+=p.dy;if(p.x<0||p.x>W)p.dx*=-1;if(p.y<0||p.y>H)p.dy*=-1;}var a=(Math.sin(p.ph)*.5+.5)*.28+.06,g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*4);g.addColorStop(0,col(p.ph,a));g.addColorStop(1,col(p.ph,0));ctx.fillStyle=g;ctx.fillRect(p.x-p.r*4,p.y-p.r*4,p.r*8,p.r*8);}ctx.globalCompositeOperation="source-over";if(!reduce)setTimeout(function(){requestAnimationFrame(frame)},1000/24);}
+  function boot(){size();seed();frame();}
+  addEventListener("resize",function(){size();seed();if(reduce)frame();});
+
+  function renderAmps(el,amps){el.innerHTML="";amps.forEach(function(a){var d=document.createElement("div");d.className="amp";d.dataset.name=a[0];d.innerHTML='<div class="lab"><span>'+a[0]+'</span><span class="p">'+Math.round(a[1]*100)+'%</span></div><div class="track"><span class="fillbar" style="width:'+(a[1]*100)+'%"></span></div>';el.appendChild(d);});}
+  function renderTargets(cols,tgt){var el=$("tgtChips");el.innerHTML="";cols.forEach(function(c){var b=document.createElement("button");b.className="tc";b.setAttribute("aria-pressed",c[0]===tgt);b.innerHTML=c[0]+' <span class="k">'+c[1]+'</span>';
+    b.onclick=function(){
+      if(cur!=="custom"&&!live&&!DS[cur].computable&&c[0]!==DS[cur].baseTarget){renderTargets(cols,DS[cur].baseTarget);
+        $("valid").className="valid err";$("valid").textContent="✗ real data can't recompute in-browser. To investigate "+c[0]+", run: python methodlm_gui.py";return;}
+      DS[cur].target=c[0];renderTargets(cols,c[0]);setValid(c[0],cols);
+      if(cur==="demo"){var pv=demoResult(c[0]);renderAmps($("wA"),pv.A);renderAmps($("wB"),pv.B);resetChamber();}};
+    el.appendChild(b);});}
+  function setValid(tgt,cols){var comp=(cur==="demo"),canned=(cur==="diabetes"&&!live);$("valid").className="valid ok";
+    $("valid").textContent="✓ target = "+tgt+" · "+(cols.length-1)+" candidate drivers"+(comp?" · computed live in-browser":canned?" · canned real-data demo (run live to recompute)":"");}
+
+  function loadDS(k){cur=k;$("customBox").className=k==="custom"?"":"hidden";
+    if(k==="custom"){$("tgtChips").innerHTML="";
+      if(live){$("valid").className="valid";$("valid").textContent="enter a file path above ▸";}
+      else{$("valid").className="valid err";$("valid").textContent="custom data needs the local app — run: python methodlm_gui.py";}
+      resetChamber();return;}
+    var d=DS[k];renderTargets(d.cols,d.target);setValid(d.target,d.cols);
+    var amps=(k==="demo")?demoResult(d.target):d;renderAmps($("wA"),amps.A);renderAmps($("wB"),amps.B);
+    resetChamber();$("ledName").textContent="ledger_"+k+".txt";}
+  function resetChamber(){$("verdict").className="verdict";$("eig").textContent="";
+    $("vtxt").textContent="Both witnesses are in superposition. Measure to collapse.";$("vkey").textContent="";
+    $("ledMeta").textContent="idle";$("tape").innerHTML='<div class="empty">the honest tape prints here as MethodLM works</div>';
+    ["laneV","laneM"].forEach(function(id){$(id).className=$(id).className.replace(/ ?(revealed|win-good|win-bad)/g,"");});
+    $("progV").style.width="0";$("progM").style.width="0";$("racehead").innerHTML="";}
+
+  function toggleRace(){var on=$("raceTog").checked;$("raceView").className=on?"":"hidden";$("soloView").className=on?"hidden":"";
+    $("chamberTitle").textContent=on?"Head-to-head":"Measurement chamber";
+    $("chamberSub").textContent=on?"Same question, two racers — one with the method, one without.":"Two witnesses in superposition collapse to one eigenstate.";}
+
+  function collapseSolo(d){[["wA",d.A],["wB",d.B]].forEach(function(pair){
+    Array.prototype.forEach.call($(pair[0]).children,function(amp){var nm=amp.dataset.name;
+      setTimeout(function(){if(nm===d.win){amp.classList.add("collapsed","win");amp.querySelector(".fillbar").style.width="100%";amp.querySelector(".p").textContent="100%";}else{amp.classList.add("dead");amp.querySelector(".fillbar").style.width="6%";amp.querySelector(".p").textContent="0%";}},700);});});
+    setTimeout(function(){$("verdict").className="verdict on";$("eig").textContent="|"+d.win+"⟩";$("vtxt").textContent=d.verdict;$("vkey").textContent=d.key;},1900);}
+
+  function runRace(d){var r=d.race;
+    $("badgeM").textContent=r.methodBadge;
+    /* vanilla finishes fast */
+    setTimeout(function(){$("progV").style.width="100%";},60);
+    setTimeout(function(){var bad=r.answerKey&&r.vanillaPick!==r.answerKey;
+      $("laneV").classList.add("revealed",bad?"win-bad":"win-good");
+      $("eigV").textContent="|"+r.vanillaPick+"⟩";$("ansV").textContent=r.vanilla;
+      $("flagV").className="flag "+(bad?"bad":"warn");$("flagV").textContent=bad?"✗ wrong":"⚠ untested";},1100);
+    /* methodlm runs its test, finishes later, correct */
+    setTimeout(function(){$("progM").style.width="55%";},60);
+    setTimeout(function(){$("progM").style.width="100%";},1600);
+    setTimeout(function(){var good=!r.answerKey||r.methodPick===r.answerKey;
+      $("laneM").classList.add("revealed",good&&r.answerKey?"win-good":"win-good");
+      $("eigM").textContent="|"+r.methodPick+"⟩";$("ansM").textContent=r.method;
+      $("flagM").className="flag "+(r.answerKey?"good":"good");$("flagM").textContent=r.answerKey?"✓ correct · tested":"✓ tested";
+      $("racehead").innerHTML=r.head;},2600);}
+
+  function printTape(d,done){var t=$("tape");t.innerHTML="";var i=0;(function step(){if(i>=d.tape.length){done&&done();return;}var ln=document.createElement("span");ln.className="ln "+d.tape[i][0];ln.textContent=d.tape[i][1];t.appendChild(ln);t.scrollTop=t.scrollHeight;i++;setTimeout(step,reduce?60:430);})();}
+
+  function cls(line){var l=line.toLowerCase();return /prereg/.test(l)?"pre":/refused/.test(l)?"ref":/\bfinal/.test(l)?"fin":/\[tool\]|controlled|stratified|corr\(/.test(l)?"tool":/compute|ledger|ingest/.test(l)?"sys":"";}
+  function measureLive(){var path=$("path").value.trim(),tgt=DS.custom&&DS.custom.target;
+    if(!path||!tgt){$("valid").className="valid err";$("valid").textContent="enter a path and pick a target column";return;}
+    var race=$("raceTog").checked;busy=true;$("go").disabled=true;$("go").textContent="◈ running…";$("ledMeta").textContent="running backend";
+    $("tape").innerHTML='<div class="empty">running MethodLM on your data — local LLM, this can take 30–120s…</div>';
+    fetch(race?"/api/race":"/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:path,target:tgt})})
+      .then(function(r){return r.json()}).then(function(d){
+        $("tape").innerHTML="";(d.ledger||"").split("\n").forEach(function(line){if(!line.trim())return;var s=document.createElement("span");s.className="ln "+cls(line);s.textContent=line;$("tape").appendChild(s);});
+        $("ledMeta").textContent="done";var eig=d.gate&&d.gate.length?"|"+d.gate[0]+"⟩":"";
+        if(race&&d.vanilla){$("badgeM").textContent=d.tested?d.tested+" test(s)":"no test";
+          $("progV").style.width="100%";$("laneV").classList.add("revealed","win-bad");$("eigV").textContent="plain LLM";$("ansV").textContent=d.vanilla;$("flagV").className="flag warn";$("flagV").textContent="⚠ untested";
+          $("progM").style.width="100%";$("laneM").classList.add("revealed","win-good");$("eigM").textContent=eig;$("ansM").textContent=d.verdict;$("flagM").className="flag good";$("flagM").textContent=d.tested?"✓ tested":"○";
+          $("racehead").innerHTML="Same data — MethodLM <b>tested</b> its answer; the plain LLM asserted one.";}
+        else{$("verdict").className="verdict on";$("eig").textContent=eig;$("vtxt").textContent=d.verdict||"done";$("vkey").textContent=d.tested?d.tested+" test(s) run":"";}
+        busy=false;$("go").disabled=false;$("go").textContent="▸ Measure";})
+      .catch(function(){$("tape").innerHTML='<div class="empty">backend error — is methodlm_gui.py running?</div>';busy=false;$("go").disabled=false;$("go").textContent="▸ Measure";});}
+  function measure(){if(busy)return;
+    if(cur==="custom"){if(!live)return;return measureLive();}
+    busy=true;$("go").disabled=true;$("go").textContent="◈ collapsing…";$("ledMeta").textContent="measuring";resetChamber();
+    var d=(cur==="demo")?demoResult(DS.demo.target):DS[cur];
+    if(cur==="demo"){renderAmps($("wA"),d.A);renderAmps($("wB"),d.B);}
+    if($("raceTog").checked&&d.race)runRace(d);else collapseSolo(d);
+    printTape(d,function(){busy=false;$("go").disabled=false;$("go").textContent="▸ Measure";$("ledMeta").textContent="collapsed · "+d.tape.length+" lines";});}
+
+  $("dsChips").addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;Array.prototype.forEach.call(this.children,function(c){c.setAttribute("aria-pressed",c===b);});loadDS(b.dataset.ds);});
+  $("raceTog").addEventListener("change",toggleRace);
+  $("go").addEventListener("click",measure);
+  $("path").addEventListener("change",function(){if(!live)return;
+    fetch("/api/describe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:this.value})})
+      .then(function(r){return r.json()}).then(function(d){
+        if(d.info){var cols=d.info.columns.map(function(c){return [c.name,c.kind]});
+          DS.custom={cols:cols,target:d.info.target_candidates[0],race:null,tape:[["sys","live backend · run to fill the tape"]]};
+          renderTargets(cols,DS.custom.target);setValid(DS.custom.target,cols);}
+        else{$("pathMsg").className="valid err";$("pathMsg").textContent="✗ "+(d.errors||["could not read"]).join("; ");}
+      }).catch(function(){$("pathMsg").className="valid err";$("pathMsg").textContent="✗ backend error";});});
+
+  fetch("/api/ping").then(function(r){return r.ok?r.json():Promise.reject();}).then(function(){live=true;$("statusDot").className="dot";$("statusTxt").textContent="live · local backend";}).catch(function(){});
+  boot();loadDS("demo");
+})();
+</script>

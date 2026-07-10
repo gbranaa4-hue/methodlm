@@ -1,0 +1,28 @@
+# model weights & binaries — never commit
+*.gguf
+*.safetensors
+*.pt
+*.onnx
+*.zip
+bin/
+method_baked_v2/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# run artifacts & scratch
+ledger_*.txt
+*.output
+*_out.txt
+run_pc_metrics.py
+me_as_driver.py
+debug_plain.py
+
+# personal data
+mailset/
+
+.DS_Store
